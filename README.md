@@ -1,8 +1,4 @@
 # Designing-a-Virtual-Memory-Manager
-NAME: HUNG CHU
-NUID: 95060612
-
-
 
 ## 1 Compile, Run, and Test program:
 
