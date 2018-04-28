@@ -1,0 +1,109 @@
+when you execute part2.out, it produces a log file called vmm_trace.log
+
+The log file can be used to help in debugging. The log file produces some useful information like the extracted page number and offset for the address, the victim frame that will be replaced etc. 
+
+Initially when VMM starts, all the frames are empty. So all the frames are kept in a free pool. Whenever we want to allocate a frame, we get a frame from the pool. Once the pool is exhausted, we use the replacement algorithm. The number of frames in the free pool initially will be equal to the number of frames (which in our case is 128). 
+
+The pages from this pool is allocated sequentially. The first frame to be given by free pool is 0, followed by 1, 2, etc. 
+
+In the log file, we can see the same. The first 128 times we add a new frame, we just get it from free pool. And hence we don't see any page replacement strategy. After the 128 frames, we start using replacement strategy. In the log file, you can search for "findVictimByLRU" or "findVictimByFifo". I have tried to dump as much useful information as possible. 
+
+Since efficiency is not a criteria, we can use a simple algorithm to keep track of the pages for LRU. Every time a page is accessed, it can be assigned a accessnumber in increasing order. When we have to replace a frame, we look for the page which has the least accessnumber. 
+
+-------------------------------------------------------------------------------
+
+The below gives a high level overview of the algorithm used
+
+while (next address) 
+{ 
+	read address to translate
+	extract page no and offset from address
+
+	lookup in tlb
+	if(tlbhit) 
+    {
+        update accessno
+		tlbhit++
+    }
+	else	// tlb miss
+	{
+		lookup page table
+		if(page hit)
+		{
+            update accessno; // either do as part of lookup, or separately
+			pagehit++
+		}
+		else // page fault
+		{
+			get the block to read from backing store
+			copy a page of data from backing store
+			find a victim frame     // free pool or from page replacement algo
+			copy the page of data to victim frame
+			update the page table 
+		}
+
+		update the tlb table
+		get victim frame in page table and update entry
+	}
+
+	get frame number from tlb
+	read data from frame number and offset
+
+	print out value		
+}
+
+
+I hope the files are useful. In case you have any issues interpreting the file, let me know. If you are able to do without the trace file, then hi-5. 
+
+Let me know in case you have any suggestions, I'll try to incorporate it. 
+---------------------------------------------------------------
+
+we can map the algorithm to the output from the log file as follows. 
+
+Open input & output files
+
+  8 ================================================
+	// Get next address to translate
+  9 Global::run - get byte for address : 1795
+ 10 VirtualMemoryManager::readByte - translate address to get physical address : 1795
+
+	// extract page number and offset from address 
+ 11 globals - extracted page page address 1795 : page 7
+ 12 globals - extracted virtual Memory offset - 3
+
+	// lookup for page number in tlb
+ 13	Tlb::lookup - lookup page : 7
+
+	// if TLB is hit, then we move directly to get physical address
+ 14 Tlb::lookup - tlb miss
+
+	// if TLB is miss, we next check Page Table
+ 15 VirtualMemoryManager::translate- get page entry for page no : 7
+
+	// if it is a page hit, we move directly get physical address
+ 16 VirtualMemoryManager::translate- page fault on page : 7, reading block : 7 from backing store
+
+	// because we hit a page fault, read the required page from BACKING Store
+ 17 BackingStore::getPage - Copy buffer to page
+
+	// Determine the victim frame in Physical memory, based on our scheme. 
+	// update page table Invalidate page entries if required
+ 18 VirtualMemoryManager::translate- putting the page in physical memory at victim : 0
+
+	// move the page to the victim frame
+ 19 PhysicalMemory::loadFrame - loading page to frame number : 0
+
+	// update TLB to cache new page
+ 20 Tlb::addEntry - get victim page
+ 21 Tlb::addEntry - updating tlb at victim frame : 0
+
+	// read the required byte
+ 22 VirtualMemoryManager::readByte - read from physical memory at : 3
+ 23 PhysicalMemory::readByte - getting frame number and offset for address - 3
+ 24 globals - extracted frame Number address 3 - frame 0
+ 25 globals - extracted physical Memory offset - 3
+ 26 PhysicalMemory::readByte - getting byte at frame-offset  (0 - 3)
+ 27 Virtual address: 1795 Physical address: 3 Value: -64
+ 28 ================================================
+
+
